@@ -28,6 +28,20 @@ python server.py
 
 浏览器本地保存页码、代码草稿、成绩和错题。「进度备份」可以导出和导入 JSON。使用同一浏览器和地址即可续学。
 
+## 界面截图
+
+### 课程与代码工作台
+
+![课程目录、翻页式讲解与同屏 Python 编辑器](docs/screenshots/course-workbench.png)
+
+### 编程练习
+
+![题面、公开样例和提交判题入口](docs/screenshots/coding-practice.png)
+
+### 错题本
+
+![待复测题目、回看和变式练习入口](docs/screenshots/error-review.png)
+
 ## 课程与题库
 
 | 周次 | 内容 |
