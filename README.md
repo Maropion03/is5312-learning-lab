@@ -1,6 +1,13 @@
 # IS5312 Python 学习工作台
 
+![Python 3.10+](https://img.shields.io/static/v1?label=Python&message=3.10%2B&color=3776AB&logo=python&logoColor=white)
+![本地运行](https://img.shields.io/static/v1?label=%E8%BF%90%E8%A1%8C&message=%E6%9C%AC%E5%9C%B0&color=b45309)
+![54 节课程](https://img.shields.io/static/v1?label=%E8%AF%BE%E7%A8%8B&message=54%20%E8%8A%82&color=c2410c)
+![315 道题](https://img.shields.io/static/v1?label=%E9%A2%98%E5%BA%93&message=315%20%E9%81%93&color=9a3412)
+
 面向 **IS5312 Analytical Programming with Python** 的本地 Web 学习工具。从第一个 Python 程序开始，用可运行示例、逐行讲解和自动判题练到面向对象和 NumPy。
+
+![课程目录、翻页式讲解与同屏 Python 编辑器](docs/screenshots/course-workbench.png)
 
 ## 快速开始
 
@@ -29,10 +36,6 @@ python server.py
 浏览器本地保存页码、代码草稿、成绩和错题。「进度备份」可以导出和导入 JSON。使用同一浏览器和地址即可续学。
 
 ## 界面截图
-
-### 课程与代码工作台
-
-![课程目录、翻页式讲解与同屏 Python 编辑器](docs/screenshots/course-workbench.png)
 
 ### 编程练习
 
