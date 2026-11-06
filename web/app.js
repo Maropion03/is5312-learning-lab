@@ -316,7 +316,15 @@ function showQuestion(question) {
     <div class="lesson-page-content">
       <p class="lead">${escape(question.prompt)}</p>
       ${question.signature ? `<pre class="sample">${escape(question.signature)}</pre>${question.week < 5 ? '<p class="caption">第一行已经写好。把代码写在缩进内，用 return 交出结果。第 5 周会系统讲解函数。</p>' : ''}` : ''}
-      ${question.sample ? `<section class="work-section"><h2>公开样例</h2><pre class="sample">${escape(question.sample.input)}\n\n预期结果\n${escape(question.sample.expected)}</pre></section>` : ''}
+      ${question.samples.length ? `<section class="work-section">
+        <h2>公开样例</h2>
+        ${!finished ? '<p class="caption">「运行」只检查当前输入。「提交判题」会用题库里的各组输入运行同一段代码，可能包含额外用例。</p>' : ''}
+        ${question.samples.map((sample, index) => `<div class="public-example">
+          ${question.samples.length > 1 ? `<div class="row"><span class="caption">样例 ${index + 1}</span>
+            ${!finished && sample.stdin !== null ? `<button data-sample-input="${index}">载入样例 ${index + 1}</button>` : ''}</div>` : ''}
+          <pre class="sample">输入\n${escape(sample.input)}\n\n预期结果\n${escape(sample.expected)}</pre>
+        </div>`).join('')}
+      </section>` : ''}
       ${!question.exam ? `<section class="work-section" id="hint-panel"><h2>卡住了？</h2>
         <div class="actions">${['思路', '解题步骤', '参考答案'].map((label, lvl) =>
           `<button data-hint="${lvl}" aria-pressed="${activeHintLevel === lvl}">${label}</button>`
@@ -382,7 +390,7 @@ function workspace(configuration) {
     </div></div>
     <div class="editor-frame"><pre class="line-numbers" id="numbers" aria-hidden="true"></pre><textarea id="editor" aria-label="Python 代码" spellcheck="false" autocapitalize="off" autocomplete="off" wrap="off" ${readOnly ? 'readonly' : ''}></textarea></div>
     ${prediction ? '<label class="form-label" for="answer">你预测的完整输出</label><textarea id="answer" class="answer" spellcheck="false" autocomplete="off"></textarea>' : ''}
-    ${hasInput ? `<details ${question?.input ? 'open' : ''}><summary>标准输入 stdin</summary><label class="form-label" for="stdin">每行一次 input()</label><textarea id="stdin" class="stdin" rows="2" ${readOnly ? 'readonly' : ''}></textarea></details>` : ''}
+    ${hasInput ? `<details ${question?.input ? 'open' : ''}><summary>标准输入 stdin</summary><label class="form-label" for="stdin">每行一次 input()${question ? ' · 仅用于「运行」' : ''}</label><textarea id="stdin" class="stdin" rows="2" ${readOnly ? 'readonly' : ''}></textarea></details>` : ''}
     ${question && Object.keys(question.files).length ? `<details><summary>样例文件</summary>${Object.entries(question.files).map(([name, data]) => `<div class="form-label">${escape(name)}</div><pre class="sample">${escape(data)}</pre>`).join('')}</details>` : ''}
     <div class="console"><div class="console-head"><strong>运行结果</strong><span id="status" class="caption" role="status">${canEdit ? '⌘ Enter 运行' : '等待操作'}</span></div>
       <pre id="output" aria-label="程序输出" aria-live="polite">尚未运行。</pre></div>`;
@@ -391,8 +399,7 @@ function workspace(configuration) {
   if ($('stdin')) $('stdin').value = draft.input ?? question?.input ?? '';
   updateNumbers();
   $('editor').addEventListener('scroll', () => { $('numbers').scrollTop = $('editor').scrollTop; });
-  if (feedback.has(key)) showFeedback(feedback.get(key));
-  else if (session?.results[key]) showFeedback(gradeMessage(session.results[key]));
+  refreshFeedback();
 }
 
 function updateNumbers() {
@@ -456,7 +463,7 @@ function showFeedback({message, status, bad}, animate = false) {
   $('output').textContent = message || '没有标准输出。';
   $('output').classList.toggle('bad', !!bad);
   $('status').textContent = status;
-  $('status').className = bad ? 'bad' : 'good';
+  $('status').className = bad ? 'bad' : status === '待验证' ? 'caption' : 'good';
   const consoleBox = $('output').closest('.console');
   const loading = status === '运行中';
   consoleBox.classList.remove('flash-good', 'flash-bad', 'loading');
@@ -468,20 +475,41 @@ function showFeedback({message, status, bad}, animate = false) {
   flashTimer = setTimeout(() => consoleBox.classList.remove('flash-good', 'flash-bad'), 1200);
 }
 
-function gradeMessage(result) {
+function gradeMessage(result, question) {
   const {passed, total, failure} = result;
   let message = `通过 ${passed} / ${total} 组测试。`;
   if (failure) {
+    if (failure.input !== undefined && failure.number && question.mode !== '预测输出') {
+      const label = failure.number <= question.samples.length ? `公开样例 ${failure.number}` : '额外用例';
+      message += '\n首个未通过：' + label;
+    }
     if (failure.input !== undefined) message += '\n\n输入：\n' + failure.input;
-    if (failure.expected !== undefined) message += '\n\n预期：\n' + failure.expected;
-    if (failure.actual !== undefined) message += '\n\n实际：\n' + failure.actual;
+    if (failure.expected !== undefined) message += '\n\n预期：' + (failure.expected.includes('\n') ? '\n' : ' ') + (failure.expected || '（空）');
+    if (failure.actual !== undefined) message += '\n实际：' + (failure.actual.includes('\n') ? '\n' : ' ') + (failure.actual || '（空）');
     if (failure.error) message += '\n\n' + failure.error;
   }
-  return {message, status: passed === total ? '全部通过' : '部分测试失败', bad: passed !== total};
+  return {message, status: passed === total ? '全部通过' : passed ? '部分测试失败' : '未通过', bad: passed !== total};
 }
 
 function payload() {
   return {code: $('editor').value, input: $('stdin')?.value ?? '', answer: $('answer')?.value ?? ''};
+}
+
+function refreshFeedback(animate = false) {
+  const {key, question} = panel;
+  const submitted = question?.exam && currentExam().results[key];
+  const output = feedback.get(key) ?? (submitted && {
+    ...gradeMessage(submitted, question), action: 'grade', submitted: submitted.submission,
+  });
+  if (!output) return;
+  const current = payload();
+  const previous = output.submitted;
+  const stale = output.action !== 'review' && (
+    previous.code !== current.code || previous.answer !== current.answer ||
+    (output.action === 'run' && previous.input !== current.input)
+  );
+  if (stale) showFeedback({message: '代码、答案或运行输入已改动，请重新运行或提交。', status: '待验证'});
+  else showFeedback(output, animate);
 }
 
 function draft() {
@@ -489,6 +517,7 @@ function draft() {
   const destination = panel.question?.exam ? currentExam().drafts : state.drafts;
   destination[panel.key] = payload();
   save();
+  if (!running) refreshFeedback();
 }
 
 function updateRecord(question, result) {
@@ -525,7 +554,7 @@ async function execute(action) {
         if (panel?.key === key) sidebar();
       }
     } else {
-      output = gradeMessage(result);
+      output = gradeMessage(result, question);
       if (action !== 'review') {
         if (session) {
           const previous = session.results[key];
@@ -541,8 +570,8 @@ async function execute(action) {
     busyButton?.classList.remove('is-running');
     document.querySelectorAll('[data-run], [data-grade], [data-finish]').forEach((button) => button.disabled = false);
   }
-  feedback.set(key, output);
-  if (panel?.key === key) showFeedback(output, true);
+  feedback.set(key, {...output, action, submitted: input});
+  if (panel?.key === key) refreshFeedback(true);
 }
 
 function dialog(title, html) {
@@ -662,6 +691,13 @@ document.addEventListener('click', async (event) => {
     if ('run' in dataset) return execute('run');
     if ('grade' in dataset) return execute('grade');
     if ('review' in dataset) return execute('review');
+    if (dataset.sampleInput !== undefined) {
+      const input = $('stdin');
+      input.value = panel.question.samples[Number(dataset.sampleInput)].stdin;
+      input.closest('details').open = true;
+      input.focus();
+      return draft();
+    }
     if ('reset' in dataset) {
       $('editor').value = panel.code;
       updateNumbers();

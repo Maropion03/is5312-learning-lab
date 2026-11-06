@@ -80,8 +80,11 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.reply({'error': '先提交你预测的结果，再验证。'}, 400)
             else:
                 cases = question['cases'][:1]
-                if question['kind'] == 'script' and request.get('input') != question['input']:
-                    cases = [{'args': [request.get('input', '')]}]
+                stdin = request.get('input', question['input'])
+                if question['kind'] == 'script' and stdin != question['input']:
+                    cases = next(([case] for case in question['cases'][:len(question['samples'])]
+                                  if case['args'] and case['args'][0] == stdin),
+                                 [{'args': [stdin]}])
                 results = run_python(request['code'], question['kind'], cases, question['files'], question['preserve'])
             return self.reply(results[0])
         if not question:
@@ -93,7 +96,7 @@ class Handler(SimpleHTTPRequestHandler):
         else:
             results = run_python(request['code'], question['kind'], cases, question['all_files'], question['preserve'])
         passed = sum(item['passed'] for item in results)
-        failure = next((item for item in results if not item['passed']), None)
+        failure = next(({'number': index, **item} for index, item in enumerate(results, 1) if not item['passed']), None)
         if question['exam'] and not request.get('review') and failure:
             failure = {'error': failure['error']}
         return self.reply({'passed': passed, 'total': len(cases), 'failure': failure})

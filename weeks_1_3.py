@@ -2,7 +2,7 @@ from curriculum import F, S, T, E, M
 
 T(1,'输出与变量','赋值把名字绑定到对象。print 默认用空格隔开参数并在末尾换行，可以用 sep 和 end 改变输出。',
   'name = "Ada"\nscore = 7\nprint(name, score, sep=": ")','print(name, score, end=": ")',
-  S('输入一行姓名和一行整数。输出「姓名 | 积分」，分隔符两侧各有一个空格。','name = input()\npoints = int(input())\nprint(name, points, sep=" | ")',['Ada\n7','李同学\n0','Lin Wei\n42']),
+  S('第 1 行是姓名，可以包含中文或空格。第 2 行是整数积分，可以为 0。输出读到的姓名和积分，中间用 | 隔开，竖线两侧各一个空格。','name = input()\npoints = int(input())\nprint(name, points, sep=" | ")',['Ada\n7','李同学\n0','Lin Wei\n42'],public_cases=2),
   S('输入两行城市名。用一个斜杠连接两行内容并输出，不加空格。','a = input()\nb = input()\nprint(a, b, sep="/")',['Hong Kong\nShenzhen','A\nB','台北\n上海']))
 T(1,'运算与优先级','乘除先于加减。用括号表达业务顺序，尤其是先扣折扣、再计算其他金额的场景。',
   'price = 12\nquantity = 3\nprint((price - 2) * quantity)','print(price - 2 * quantity)',

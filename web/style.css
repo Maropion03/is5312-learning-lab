@@ -859,6 +859,8 @@ button.is-running::after {
   margin-top: 8px;
 }
 
+.public-example + .public-example { margin-top: 14px; }
+
 /* Mistral Editorial Cards */
 .content section.work-section, .content .row.work-section {
   position: relative;

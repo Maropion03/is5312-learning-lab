@@ -18,9 +18,9 @@ EXTRAS = {week: [] for week in TOPICS}
 MOCK = []
 
 
-def task(prompt, parameters, body, cases, *, kind='function', inputs='', files=None):
+def task(prompt, parameters, body, cases, *, kind='function', inputs='', files=None, public_cases=1):
     code = body if kind == 'script' else f'def solve({parameters}):\n' + '\n'.join('    ' + line for line in body.splitlines())
-    return dict(prompt=prompt, code=code, cases=cases, kind=kind, input=inputs, files=files or {})
+    return dict(prompt=prompt, code=code, cases=cases, kind=kind, input=inputs, files=files or {}, public_cases=public_cases)
 
 
 def T(week, title, guide, demo, mistake, practice, exam):
@@ -35,8 +35,8 @@ def M(week, title, exercise):
     MOCK.append((week, title, exercise))
 
 
-def S(prompt, code, inputs, files=None):
-    return task(prompt, '', code, [(value,) for value in inputs], kind='script', files=files)
+def S(prompt, code, inputs, files=None, *, public_cases=1):
+    return task(prompt, '', code, [(value,) for value in inputs], kind='script', files=files, public_cases=public_cases)
 
 
 F = task

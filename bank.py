@@ -74,16 +74,22 @@ def build_question(identifier, week, topic, title, mode, spec, *, core=False, ex
     if starter is None:
         starter = (code.split('\n')[0] + '\n    pass\n') if kind == 'function' else '# 在这里编写你的程序\n'
     preserve = any(word in spec['prompt'] for word in ('不修改输入', '保持原列表', '保持旧列表'))
+    samples = [
+        {
+            'input': case_label(kind, case['args']),
+            'expected': case['label'],
+            'stdin': case['args'][0] if kind == 'script' and case['args'] else None,
+        }
+        for case in cases[:spec.get('public_cases', 1)]
+    ] if mode != '预测输出' else []
     question = {
         'id': identifier, 'week': week, 'topic': topic, 'title': title, 'mode': mode,
         'prompt': spec['prompt'], 'kind': kind, 'core': core, 'exam': exam, 'starter': starter,
         'input': cases[0]['args'][0] if kind == 'script' and cases[0]['args'] else '',
-        'sample': {'input': case_label(kind, cases[0]['args']), 'expected': cases[0]['label']},
+        'sample': samples[0] if samples else None, 'samples': samples,
         'signature': code.split('\n')[0] if kind == 'function' else '',
         'files': {key: value for key, value in spec['files'].items() if key in cases[0]['args']},
     }
-    if mode == '预测输出':
-        question['sample'] = None
     QUESTIONS[identifier] = {
         **question, 'cases': cases, 'all_files': spec['files'], 'preserve': preserve,
         'hints': [guide or '先列出输入、目标输出和一个容易漏掉的边界。', outline(spec)],

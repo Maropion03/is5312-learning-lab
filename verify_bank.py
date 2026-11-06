@@ -41,4 +41,10 @@ known_values = {
 }
 for question, expected in known_values.items():
     assert QUESTIONS[question]['cases'][0]['label'] == expected
+
+first_practice = QUESTIONS['w1-1-write']
+assert [(sample['stdin'], sample['expected']) for sample in first_practice['samples']] == [
+    ('Ada\n7', 'Ada | 7'), ('李同学\n0', '李同学 | 0'),
+]
+assert len(first_practice['cases']) == 3
 print(f'{len(QUESTIONS)} 道题，{total} 组参考用例，检查通过。')
