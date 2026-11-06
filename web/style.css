@@ -803,28 +803,29 @@ button.is-running::after {
 }
 .lesson-trace p, .content .lesson-result-note { margin: 7px 0 0; }
 .lesson-diff { margin: 10px 0; }
-.lesson-workspace, .study-desk .content { scroll-margin-top: 125px; }
+.paged-workspace, .paged-desk .content { scroll-margin-top: 125px; }
 .lesson-return { display: none; }
+.review-row { padding: 11px 0; border-bottom: 1px solid var(--line-warm); }
 
 @media (max-width: 820px) {
   .lesson-return { display: inline-block; }
 }
 
 @media (min-width: 821px) {
-  .study-desk {
+  .paged-desk {
     height: calc(100dvh - 64px);
     grid-template-rows: minmax(0, 1fr);
   }
 
-  .study-desk .sidebar,
-  .lesson-workspace,
+  .paged-desk .sidebar,
+  .paged-workspace,
   .lesson-page-content {
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
   }
 
-  .study-desk .content {
+  .paged-desk .content {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
     min-height: 0;
@@ -832,16 +833,20 @@ button.is-running::after {
     padding-bottom: 18px;
   }
 
-  .lesson-workspace {
+  .paged-workspace {
     --lesson-editor-height: clamp(128px, 39dvh, 350px);
     padding-bottom: 20px;
   }
 
-  .lesson-workspace #editor, .lesson-workspace .line-numbers {
+  .paged-workspace:has(.answer), .paged-workspace:has(details[open]) {
+    --lesson-editor-height: clamp(100px, 28dvh, 270px);
+  }
+
+  .paged-workspace #editor, .paged-workspace .line-numbers {
     height: var(--lesson-editor-height);
   }
 
-  .lesson-workspace .console pre {
+  .paged-workspace .console pre {
     max-height: clamp(88px, calc(55dvh - 225px), 250px);
   }
 }

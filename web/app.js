@@ -35,7 +35,8 @@ const filters = ['全部', '必做', '独立编写', '预测输出', '调试', '
 let view = state.resume?.view || 'study';
 let activeQuestion = state.resume?.question || '';
 let activeExam = state.resume?.exam || '';
-let practiceFilter = '全部';
+let practiceFilter = state.resume?.filter || '全部';
+let errorReviewIds = state.resume?.errorReviewIds || [];
 let panel = null;
 let feedback = new Map();
 let hints = new Map();
@@ -58,7 +59,6 @@ function mode(next) {
   view = next;
   activeQuestion = '';
   activeExam = '';
-  practiceFilter = '全部';
   render();
 }
 
@@ -72,18 +72,20 @@ function selectWeek(number) {
   render();
 }
 
-function openQuestion(id) {
+function openQuestion(id, fromErrors = false) {
   const question = questions[id];
+  if (fromErrors && (view !== 'errors' || !activeQuestion)) {
+    errorReviewIds = unresolvedErrors().map(([key]) => key).filter(canReviewError);
+  }
   state.week = question.week;
   activeQuestion = id;
-  if (question.exam) {
-    activeExam = question.exam;
-    view = 'exam';
-  } else {
-    view = 'practice';
-    activeExam = '';
-  }
-  save();
+  activeExam = question.exam;
+  view = fromErrors ? 'errors' : question.exam ? 'exam' : 'practice';
+  if (view === 'practice' && !filteredPracticeItems().includes(question)) practiceFilter = '全部';
+  const entries = fromErrors ? unresolvedErrors().map(([key]) => questions[key])
+    : question.exam ? examQuestions(question.exam) : filteredPracticeItems();
+  const index = entries.indexOf(question);
+  if (index >= 0) (state.listPages ??= {})[listKey()] = Math.floor(index / listPageSize);
   render();
 }
 
@@ -208,12 +210,34 @@ function showLessonEditor(item, variation = false) {
   });
 }
 
-function rows(items, showMode = true) {
+const listPageSize = 6;
+
+function listKey() {
+  if (view === 'practice') return `practice-${state.week}-${practiceFilter}`;
+  if (view === 'exam') return `exam-${activeExam || 'home'}`;
+  return 'errors';
+}
+
+function pagedList(heading, items, format) {
+  const total = Math.max(1, Math.ceil(items.length / listPageSize));
+  const page = Math.min(state.listPages?.[listKey()] ?? 0, total - 1);
+  const start = page * listPageSize;
+  $('content').innerHTML = `
+    <div class="lesson-heading">${heading}</div>
+    <div class="lesson-page-content">${format(items.slice(start, start + listPageSize), start)}</div>
+    ${items.length ? `<nav class="lesson-pagination" aria-label="列表翻页">
+      <button data-list-page="${page - 1}" ${page === 0 ? 'disabled' : ''}>← 上一页</button>
+      <span class="caption" role="status">第 ${page + 1} / ${total} 页</span>
+      <button data-list-page="${page + 1}" ${page === total - 1 ? 'disabled' : ''}>下一页 →</button>
+    </nav>` : ''}`;
+}
+
+function rows(items, showMode = true, start = 0) {
   return `<div class="question-list" id="question-list">${items.map((question, index) => {
     const entry = question.exam ? state.exams[question.exam]?.results[question.id] : state.records[question.id];
     const status = entry?.total && entry.passed === entry.total ? '通过' : entry?.attempts ? '已做' : question.core && !question.exam ? '必做' : '';
     return `<button class="qrow" data-question="${question.id}" data-status="${status}" style="--i:${index}" ${question.id === activeQuestion ? 'aria-current="step"' : ''}>
-      <span class="qindex">${pad(index + 1)}</span><span><b>${escape(question.title)}</b>${showMode ? `<br><small>${question.mode} · W${pad(question.week)}</small>` : ''}</span><small>${status}</small>
+      <span class="qindex">${pad(start + index + 1)}</span><span><b>${escape(question.title)}</b>${showMode ? `<br><small>${question.mode} · W${pad(question.week)}</small>` : ''}</span><small>${status}</small>
     </button>`;
   }).join('')}</div>`;
 }
@@ -224,14 +248,12 @@ function filteredPracticeItems() {
 
 function practice() {
   if (activeQuestion) return showQuestion(questions[activeQuestion]);
-  const items = filteredPracticeItems();
-  $('content').innerHTML = `
+  pagedList(`
     <div class="eyebrow">PRACTICE / WEEK ${pad(state.week)}</div>
     <h1>本周题库</h1>
     <p class="lead">${escape(week().title)} · 28 道随堂及扩展题，另有 6 道周测题。</p>
     <div class="filters">${filters.map((filter) => `<button data-filter="${filter}" aria-pressed="${filter === practiceFilter}">${filter}</button>`).join('')}</div>
-    ${rows(items)}
-  `;
+  `, filteredPracticeItems(), (items, start) => rows(items, true, start));
   $('workspace').innerHTML = '<div class="eyebrow">PYTHON WORKBENCH</div><h2>从题库选一道题</h2><p class="caption">先跑公开样例，再提交多组测试。</p>';
 }
 
@@ -246,28 +268,27 @@ function examHome() {
     }).length;
     const started = !!session;
     const finished = session?.finished;
-    $('content').innerHTML = `
+    pagedList(`
       <button class="quiet" data-view="exam">← 测试首页</button>
-      <div class="work-section"><div class="eyebrow">COMPUTER LAB / ${items.length} QUESTIONS</div>
+      <div class="eyebrow">COMPUTER LAB / ${items.length} QUESTIONS</div>
       <h1>${examName(activeExam)}</h1>
       <p class="lead">${finished ? `本次通过 ${score} / ${items.length} 道。点题目回看失败用例和解析。` :
         '题目可跳过和返回。答题期间显示运行错误和通过情况，交卷后开放解析。'}</p>
-      ${started ? rows(items, false) : ''}
-      <div class="actions work-section">
+      <div class="actions">
         ${!started ? '<button class="primary" data-start>开始答题</button>' :
           finished ? '<button data-restart>重新开始一轮</button>' : '<button class="primary" data-finish>交卷并查看解析</button>'}
-      </div></div>`;
+      </div>`, started ? items : [], (visible, start) => rows(visible, false, start));
   } else {
-    $('content').innerHTML = `
+    pagedList(`
       <div class="eyebrow">COMPUTER LAB</div><h1>上机测试</h1>
       <p class="lead">先做当前周的 6 道独立编程题，或用 9 道全新题练习第 1–9 周综合技能。</p>
       <div class="actions"><button class="primary" data-exam="mock">打开综合模拟</button><button data-exam="week-${state.week}">打开第 ${state.week} 周测</button></div>
-      <p class="caption work-section">综合模拟范围依据现有课件编排。正式考试范围待课程公布。</p>
-      <section class="work-section"><h2>每周测验</h2>
-      ${course.weeks.map((item, order) => {
+      <p class="caption work-section">综合模拟范围依据现有课件编排。正式考试范围待课程公布。</p>`,
+      course.weeks, (items) => `<h2>每周测验</h2>
+      ${items.map((item, order) => {
         const done = state.exams['week-' + item.week]?.finished;
         return `<button class="qrow" data-exam="week-${item.week}" data-status="${done ? '已交卷' : ''}" style="--i:${order}"><span class="qindex">${pad(item.week)}</span><span>${escape(item.title)}</span><small>${done ? '已交卷' : '6 题'}</small></button>`;
-      }).join('')}</section>`;
+      }).join('')}`);
   }
   $('workspace').innerHTML = '<div class="eyebrow">EXAM MODE</div><h2>独立完成代码</h2><p class="caption">交卷之后可查看参考解法。测试成绩和草稿保存在当前浏览器。</p>';
 }
@@ -275,15 +296,24 @@ function examHome() {
 function showQuestion(question) {
   const session = question.exam ? currentExam() : null;
   const finished = !!session?.finished;
-  const entries = question.exam ? examQuestions(question.exam) : week().practice;
+  const reviewing = view === 'errors';
+  const entries = reviewing ? errorReviewIds.map((id) => questions[id])
+    : question.exam ? examQuestions(question.exam) : filteredPracticeItems();
   const index = entries.findIndex((item) => item.id === question.id);
   const result = session ? session.results[question.id] : record(question.id);
   const activeHintLevel = hintLevels.get(question.id);
+  const navigation = reviewing ? 'data-error-question' : 'data-question';
   $('content').innerHTML = `
-    <button class="quiet" data-back-question>← ${question.exam ? examName(question.exam) : '本周题库'}</button>
-    <div class="work-section">
+    <div class="lesson-heading">
+      <div class="actions">
+        <button class="quiet" data-back-question>← ${reviewing ? '错题本' : question.exam ? examName(question.exam) : '本周题库'}</button>
+        <button class="lesson-return" data-to-workspace>去代码区</button>
+        ${question.exam && !finished ? '<button data-finish>交卷</button>' : ''}
+      </div>
       <div class="eyebrow">WEEK ${pad(question.week)} / ${question.mode}${question.core && !question.exam ? ' · 必做' : ''}</div>
       <h1>${escape(question.title)}</h1>
+    </div>
+    <div class="lesson-page-content">
       <p class="lead">${escape(question.prompt)}</p>
       ${question.signature ? `<pre class="sample">${escape(question.signature)}</pre>${question.week < 5 ? '<p class="caption">第一行已经写好。把代码写在缩进内，用 return 交出结果。第 5 周会系统讲解函数。</p>' : ''}` : ''}
       ${question.sample ? `<section class="work-section"><h2>公开样例</h2><pre class="sample">${escape(question.sample.input)}\n\n预期结果\n${escape(question.sample.expected)}</pre></section>` : ''}
@@ -297,12 +327,12 @@ function showQuestion(question) {
         <pre class="sample">${escape(session.review[question.id]?.solution)}</pre>
         ${result?.total && result.passed < result.total ? '<button data-review>查看失败用例</button>' : ''}
         <button data-remediate="${question.id}">补练相关知识点</button></section>` : ''}
-      <div class="actions work-section">
-        ${index > 0 ? `<button data-question="${entries[index - 1].id}">← 上一题</button>` : ''}
-        ${index < entries.length - 1 ? `<button data-question="${entries[index + 1].id}">下一题 →</button>` : ''}
-        ${question.exam && !finished ? '<button data-finish>交卷</button>' : ''}
-      </div>
-    </div>`;
+    </div>
+    <nav class="lesson-pagination" aria-label="题目翻页">
+      <button ${index > 0 ? `${navigation}="${entries[index - 1].id}"` : 'disabled'}>← 上一题</button>
+      <span class="caption" role="status">${index >= 0 ? `第 ${index + 1} / ${entries.length} 题` : ''}</span>
+      <button ${index >= 0 && index < entries.length - 1 ? `${navigation}="${entries[index + 1].id}"` : 'disabled'}>下一题 →</button>
+    </nav>`;
   workspace({key: question.id, code: question.starter, question, readOnly: finished || question.mode === '预测输出', title: 'exercise.py'});
   if (hints.has(question.id) && !question.exam) {
     $('hint-text').textContent = hints.get(question.id);
@@ -310,17 +340,27 @@ function showQuestion(question) {
   }
 }
 
-function errors() {
-  const unresolved = Object.entries(state.records).filter(([id, entry]) => {
+function unresolvedErrors() {
+  return Object.entries(state.records).filter(([id, entry]) => {
     const needsReview = Math.max(entry.failedAt || 0, entry.solutionAt || 0);
     if (!needsReview || !questions[id]) return false;
     return !Object.entries(state.records).some(([other, item]) => questions[other] && item.passingAt > needsReview && related(questions[id], questions[other]));
   }).sort(([, a], [, b]) => Math.max(b.failedAt || 0, b.solutionAt || 0) - Math.max(a.failedAt || 0, a.solutionAt || 0));
-  $('content').innerHTML = `<div class="eyebrow">REVIEW LOG</div><h1>错题本</h1>
-    <p class="lead">${unresolved.length ? `${unresolved.length} 道题待复测。完成一道相关新题后，原错题会从待复测清单移除。` : '暂时没有待复测的题。提交失败或查看练习参考答案后，题目会出现在这里。'}</p>
-    ${unresolved.map(([id, entry]) => `<div class="work-section row"><span><strong>${escape(questions[id].title)}</strong><br><span class="caption">W${pad(questions[id].week)} · ${questions[id].mode} · 提交 ${entry.attempts} 次</span></span>
-      <span class="actions">${!questions[id].exam || state.exams[questions[id].exam]?.finished ? `<button data-question="${id}">回看</button>` : ''}
-      <button data-remediate="${id}">做变式题</button></span></div>`).join('')}`;
+}
+
+function canReviewError(id) {
+  const exam = questions[id].exam;
+  return !exam || state.exams[exam]?.finished;
+}
+
+function errors() {
+  if (activeQuestion) return showQuestion(questions[activeQuestion]);
+  const unresolved = unresolvedErrors();
+  pagedList(`<div class="eyebrow">REVIEW LOG</div><h1>错题本</h1>
+    <p class="lead">${unresolved.length ? `${unresolved.length} 道题待复测。完成一道相关新题后，原错题会从待复测清单移除。` : '暂时没有待复测的题。提交失败或查看练习参考答案后，题目会出现在这里。'}</p>`,
+    unresolved, (items) => items.map(([id, entry]) => `<div class="row review-row"><span><strong>${escape(questions[id].title)}</strong><br><span class="caption">W${pad(questions[id].week)} · ${questions[id].mode} · 提交 ${entry.attempts} 次</span></span>
+      <span class="actions">${canReviewError(id) ? `<button data-error-question="${id}">回看</button>` : ''}
+      <button data-remediate="${id}">做变式题</button></span></div>`).join(''));
   $('workspace').innerHTML = '<div class="eyebrow">RETRY / RECALL</div><h2>用新题确认掌握</h2><p class="caption">补练会选择同知识点的不同任务，找不到时转到同一周的综合补练。</p>';
 }
 
@@ -336,7 +376,7 @@ function workspace(configuration) {
   panel = configuration;
   $('workspace').innerHTML = `
     <div class="editor-head"><strong>${title} <span class="caption">/ Python</span></strong><div class="editor-actions">
-      ${lessonId ? '<button class="lesson-return" data-return-to-lesson>回到讲解</button>' : ''}
+      ${lessonId || question ? `<button class="lesson-return" data-return-to-lesson>${lessonId ? '回到讲解' : '回到题面'}</button>` : ''}
       ${canEdit ? '<button data-reset>还原</button><button data-run>▶ 运行</button>' : ''}
       ${canSubmit ? '<button data-grade class="primary">提交判题</button>' : ''}
     </div></div>
@@ -396,15 +436,14 @@ function renderNow() {
   const page = [view, state.week, activeQuestion, activeExam, view === 'study' ? lesson().id : ''].join('/');
   if (renderedPage && page !== renderedPage) scrollTo(0, 0);
   renderedPage = page;
-  state.resume = {view, question: activeQuestion, exam: activeExam};
+  state.resume = {view, question: activeQuestion, exam: activeExam, filter: practiceFilter};
+  if (view === 'errors' && activeQuestion) state.resume.errorReviewIds = errorReviewIds;
   save();
   document.querySelectorAll('.top-nav [data-view]').forEach((button) => {
     if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
   moveNavPill();
-  $('content').parentElement.classList.toggle('study-desk', view === 'study');
-  $('workspace').classList.toggle('lesson-workspace', view === 'study');
   $('python').innerHTML = '<i class="dot" aria-hidden="true"></i>Python ' + escape(course.python) + ' / LOCAL';
   $('python').classList.add('ready');
   sidebar();
@@ -586,6 +625,7 @@ document.addEventListener('click', async (event) => {
       return;
     }
     if ('returnToLesson' in dataset) return $('content').scrollIntoView({block: 'start'});
+    if ('toWorkspace' in dataset) return $('workspace').scrollIntoView({block: 'start'});
     if ('next' in dataset) {
       const index = week().lessons.indexOf(lesson());
       if (index === 5) return selectWeek(state.week + 1);
@@ -595,16 +635,15 @@ document.addEventListener('click', async (event) => {
     }
     if (dataset.filter) {
       practiceFilter = dataset.filter;
-      const listEl = $('question-list');
-      if (view === 'practice' && !activeQuestion && listEl) {
-        document.querySelectorAll('.filters [data-filter]').forEach((btn) => {
-          btn.setAttribute('aria-pressed', String(btn.dataset.filter === practiceFilter));
-        });
-        listEl.outerHTML = rows(filteredPracticeItems());
-        return;
-      }
+      (state.listPages ??= {})[listKey()] = 0;
       return render();
     }
+    if (dataset.listPage !== undefined) {
+      (state.listPages ??= {})[listKey()] = Number(dataset.listPage);
+      if (matchMedia('(max-width: 820px)').matches) $('content').scrollIntoView({block: 'start'});
+      return render();
+    }
+    if (dataset.errorQuestion) return openQuestion(dataset.errorQuestion, true);
     if (dataset.question) return openQuestion(dataset.question);
     if (dataset.exam) { view = 'exam'; activeQuestion = ''; activeExam = dataset.exam; return render(); }
     if ('backQuestion' in dataset) { activeQuestion = ''; return render(); }
@@ -700,6 +739,7 @@ document.addEventListener('change', async (event) => {
     }
     if (!confirm('导入会覆盖当前浏览器的学习进度。继续？')) return;
     state = imported;
+    practiceFilter = state.resume?.filter || '全部';
     feedback = new Map();
     hints = new Map();
     hintLevels = new Map();
