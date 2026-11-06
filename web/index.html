@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fffaeb">
+  <title>IS5312 Python 学习工作台</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="header">
+    <a class="brand" href="#study" data-view="study" aria-label="返回课程">
+      <span class="mark" aria-hidden="true">&gt;_</span>
+      <span><b>IS5312</b><small>PYTHON LEARNING LAB</small></span>
+    </a>
+    <nav class="top-nav" aria-label="工作区">
+      <span class="nav-pill" aria-hidden="true"></span>
+      <button data-view="study">课程</button>
+      <button data-view="practice">题库</button>
+      <button data-view="exam">上机测试</button>
+      <button data-view="errors">错题本</button>
+    </nav>
+    <div class="utility">
+      <span id="python" class="runtime">连接本地 Python…</span>
+      <button id="backup" class="quiet">进度备份</button>
+    </div>
+  </header>
+  <main class="desk">
+    <aside id="sidebar" class="sidebar" aria-label="课程目录"></aside>
+    <section id="content" class="content" aria-label="学习与题目内容" aria-live="polite"><p>正在读取本地课程。</p></section>
+    <section id="workspace" class="workspace" aria-label="代码工作区"></section>
+  </main>
+  <dialog id="dialog">
+    <div class="dialog-head"><strong id="dialog-title"></strong><form method="dialog"><button class="quiet" aria-label="关闭弹窗">关闭</button></form></div>
+    <div id="dialog-body"></div>
+  </dialog>
+</body>
+</html>
