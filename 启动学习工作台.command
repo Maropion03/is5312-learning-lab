@@ -5,9 +5,11 @@ if curl -fsS "${url}/api/course" >/dev/null 2>&1; then
   open "$url"
   exit
 fi
-python3 -c 'import numpy' || exit 1
+python_bin=python3
+if [[ -x .venv/bin/python ]]; then python_bin=.venv/bin/python; fi
+"$python_bin" -c 'import numpy, pandas' || exit 1
 export PYTHONDONTWRITEBYTECODE=1
-python3 server.py &
+"$python_bin" server.py &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null' EXIT
 for attempt in {1..30}; do

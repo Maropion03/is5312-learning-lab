@@ -2,27 +2,27 @@
 
 ![Python 3.10+](https://img.shields.io/static/v1?label=Python&message=3.10%2B&color=3776AB&logo=python&logoColor=white)
 ![本地运行](https://img.shields.io/static/v1?label=%E8%BF%90%E8%A1%8C&message=%E6%9C%AC%E5%9C%B0&color=b45309)
-![54 节课程](https://img.shields.io/static/v1?label=%E8%AF%BE%E7%A8%8B&message=54%20%E8%8A%82&color=c2410c)
-![315 道题](https://img.shields.io/static/v1?label=%E9%A2%98%E5%BA%93&message=315%20%E9%81%93&color=9a3412)
+![60 节课程](https://img.shields.io/static/v1?label=%E8%AF%BE%E7%A8%8B&message=60%20%E8%8A%82&color=c2410c)
+![349 道题](https://img.shields.io/static/v1?label=%E9%A2%98%E5%BA%93&message=349%20%E9%81%93&color=9a3412)
 
-面向 **IS5312 Analytical Programming with Python** 的本地 Web 学习工具。从第一个 Python 程序开始，用可运行示例、逐行讲解和自动判题练到面向对象和 NumPy。
+面向 **IS5312 Analytical Programming with Python** 的本地 Web 学习工具。从第一个 Python 程序开始，用可运行示例、逐行讲解和自动判题练到面向对象、NumPy 和 Pandas。
 
 ![课程目录、翻页式讲解与同屏 Python 编辑器](docs/screenshots/course-workbench.png)
 
 ## 快速开始
 
-需要 Python 3.10 或更新版本，以及 NumPy。本项目在 macOS、Python 3.14.6 和 NumPy 2.5.2 上通过验证。
+需要 Python 3.10 或更新版本，以及 NumPy 和 Pandas。本项目在 macOS、Python 3.14.6、NumPy 2.5.4 和 Pandas 3.1.1 上通过验证。
 
 ```bash
 git clone https://github.com/Maropion03/is5312-learning-lab.git
 cd is5312-learning-lab
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install numpy
+python -m pip install numpy pandas
 python server.py
 ```
 
-在浏览器打开 [学习工作台](http://127.0.0.1:8531/)。服务在终端前台运行，按 `Ctrl+C` 停止。如果系统的 `python3` 已安装 NumPy，也可以在 Finder 双击 [启动学习工作台.command](启动学习工作台.command)。
+在浏览器打开 [学习工作台](http://127.0.0.1:8531/)。服务在终端前台运行，按 `Ctrl+C` 停止。安装好依赖后，也可以在 Finder 双击 [启动学习工作台.command](启动学习工作台.command)，脚本会优先使用项目的 `.venv`。
 
 ## 学习方式
 
@@ -52,18 +52,19 @@ python server.py
 | 1–3 | Python 基础、字符串与序列、分支与循环 |
 | 4–6 | 遍历与文件、函数与集合字典、递归与推导式 |
 | 7–9 | 高阶函数、面向对象、NumPy |
+| 10 | Pandas 的 Series 与 DataFrame、表格读取、缺失值与去重、值映射、排序和分组统计 |
 
-- **54 节课程**。第 1–7 周可查阅配套代码与详细讲义，第 8–9 周的可运行示例按课程课件主题编写。
-- **306 道分周题目**。每周 28 道练习、6 道周测，其中 14 道标为核心题。部分补全题和独立编程题共用题意。
-- **9 道独立综合模拟题**。范围为本项目覆盖的第 1–9 周。
+- **60 节课程**。第 1–7 周可查阅配套代码与详细讲义，第 8–10 周的可运行示例按课程课件主题编写。
+- **340 道分周题目**。每周 28 道练习、6 道周测，其中 14 道标为核心题。部分补全题和独立编程题共用题意。
+- **9 道独立综合模拟题**。范围为第 1–9 周，第 10 周 Pandas 有独立周测。
 
 ## 项目结构与验证
 
 | 路径 | 内容 |
 | --- | --- |
 | [web/](web/) | 学习页面、编辑器、翻页和进度管理 |
-| [server.py](server.py)、[runner.py](runner.py) | 本地服务和 Python 执行判题，支持标准输入、样例文件和 NumPy |
+| [server.py](server.py)、[runner.py](runner.py) | 本地服务和 Python 执行判题，支持标准输入、样例文件、NumPy 和 Pandas |
 | [lesson_notes.py](lesson_notes.py)、[bank.py](bank.py) | 逐行讲解、动手实验、题库编排 |
 | [sources/](sources/) | 第 1–7 周配套代码与讲义 |
 
-在已安装 NumPy 的环境中运行 `python verify_bank.py`，可检查 54 节课程的逐行讲解与实验，以及 315 道题的 878 组参考用例。服务监听本机回环地址，代码通过本机 Python 进程执行。
+安装依赖后运行 `python verify_bank.py`，可检查 60 节课程的逐行讲解与实验，以及 349 道题的 972 组参考用例。服务监听本机回环地址，代码通过本机 Python 进程执行。

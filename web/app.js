@@ -42,6 +42,7 @@ let feedback = new Map();
 let hints = new Map();
 let hintLevels = new Map();
 const week = () => course.weeks[state.week - 1];
+const allLessons = course.weeks.flatMap((item) => item.lessons);
 const lesson = () => week().lessons.find((item) => item.id === state.lesson[state.week]) || week().lessons[0];
 const pad = (number) => String(number).padStart(2, '0');
 const examName = (id) => id === 'mock' ? '第 1–9 周综合上机模拟' : '第 ' + Number(id.slice(5)) + ' 周测';
@@ -90,10 +91,10 @@ function openQuestion(id, fromErrors = false) {
 }
 
 function sidebar() {
-  const completed = course.weeks.flatMap((item) => item.lessons).filter((item) => state.visited[item.id]).length;
+  const completed = allLessons.filter((item) => state.visited[item.id]).length;
   $('sidebar').innerHTML = `
-    <div class="sidebar-head"><strong>课程目录</strong><span class="caption">已运行 ${completed} / 54 节示例</span>
-      <div class="progress" role="progressbar" aria-label="示例完成度" aria-valuemin="0" aria-valuemax="54" aria-valuenow="${completed}"><i style="--p:${completed / 54}"></i></div></div>
+    <div class="sidebar-head"><strong>课程目录</strong><span class="caption">已运行 ${completed} / ${allLessons.length} 节示例</span>
+      <div class="progress" role="progressbar" aria-label="示例完成度" aria-valuemin="0" aria-valuemax="${allLessons.length}" aria-valuenow="${completed}"><i style="--p:${completed / allLessons.length}"></i></div></div>
     <div class="week-list">${course.weeks.map((item, order) => {
       const selected = item.week === state.week;
       const count = item.lessons.filter((entry) => state.visited[entry.id]).length;
@@ -131,10 +132,10 @@ function updateLessonPage(index) {
 function study() {
   const item = lesson();
   const number = week().lessons.indexOf(item) + 1;
-  const hasNext = number < 6 || state.week < 9;
-  const source = state.week <= 7
-    ? `基于原课程示例 · week${state.week}.py <button data-source="${state.week}">原代码</button><button data-notes="${state.week}">详细讲义</button>`
-    : `按 ${state.week === 8 ? 'IS5312 week 8_Le.pptx' : 'IS5312 week 9_Le-1.pptx'} 补写的可运行示例`;
+  const hasNext = number < week().lessons.length || state.week < course.weeks.length;
+  const source = week().ppt
+    ? `按 ${escape(week().ppt)} 编写的可运行示例`
+    : `基于原课程示例 · week${state.week}.py <button data-source="${state.week}">原代码</button><button data-notes="${state.week}">详细讲义</button>`;
   const experiment = item.experiment;
   $('content').innerHTML = `
     <div class="lesson-heading">
@@ -657,7 +658,7 @@ document.addEventListener('click', async (event) => {
     if ('toWorkspace' in dataset) return $('workspace').scrollIntoView({block: 'start'});
     if ('next' in dataset) {
       const index = week().lessons.indexOf(lesson());
-      if (index === 5) return selectWeek(state.week + 1);
+      if (index === week().lessons.length - 1) return selectWeek(state.week + 1);
       state.lesson[state.week] = week().lessons[index + 1].id;
       save();
       return render();
@@ -769,7 +770,7 @@ document.addEventListener('change', async (event) => {
   if (event.target.id !== 'import' || !event.target.files[0]) return;
   try {
     const imported = JSON.parse(await event.target.files[0].text());
-    if (imported.version !== 1 || !Number.isInteger(imported.week) || imported.week < 1 || imported.week > 9 ||
+    if (imported.version !== 1 || !Number.isInteger(imported.week) || imported.week < 1 || imported.week > course.weeks.length ||
       !['lesson', 'visited', 'drafts', 'records', 'exams'].every((key) => imported[key] && typeof imported[key] === 'object')) {
       throw new Error('请选择从本工作台导出的 JSON 备份。');
     }

@@ -11,9 +11,16 @@ WEEKS = [
     ('高阶函数', 'map、zip、filter、排序、reduce 与函数组合'),
     ('面向对象', '类、实例、类变量、继承与方法重写'),
     ('NumPy', '数组、索引、广播、统计、筛选与文件读取'),
+    ('Pandas', 'Series、DataFrame、表格读取、清洗与分组统计'),
 ]
 
-TOPICS = {week: [] for week in range(1, 10)}
+PPT_SOURCES = {
+    8: 'IS5312 week 8_Le.pptx',
+    9: 'IS5312 week 9_Le-1.pptx',
+    10: 'IS5312 week 10_Le.pptx',
+}
+
+TOPICS = {week: [] for week in range(1, len(WEEKS) + 1)}
 EXTRAS = {week: [] for week in TOPICS}
 MOCK = []
 

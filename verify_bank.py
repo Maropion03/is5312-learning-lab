@@ -3,8 +3,8 @@ from bank import COURSE, MOCK_EXAM, QUESTIONS
 from lesson_notes import NOTES
 from runner import run
 
-assert len(COURSE) == 9 and len(MOCK_EXAM) == 9 and len(QUESTIONS) == 315
-assert len(NOTES) == 54
+assert len(COURSE) == 10 and len(MOCK_EXAM) == 9 and len(QUESTIONS) == 349
+assert len(NOTES) == 60
 for week in COURSE:
     assert len(week['lessons']) == 6
     assert len(week['practice']) == 28 and len(week['exam']) == 6
@@ -38,6 +38,9 @@ known_values = {
     'w4-6-exam': "['Chan, Ada', 'Wu']",
     'w8-4-exam': '[100, 101, 102]',
     'w9-3-exam': '[[10, 20], [60, 80]]',
+    'w10-1-exam': '[0, 1, 4]',
+    'w10-3-write': '[2, 12]',
+    'w10-6-write': "{'A': [19.0, 19.0, 19.0], 'B': [20.0, 18.0, 22.0]}",
 }
 for question, expected in known_values.items():
     assert QUESTIONS[question]['cases'][0]['label'] == expected

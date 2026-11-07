@@ -1,12 +1,13 @@
 """Build the public course map and private answer bank from authored exercises."""
 import ast
 
-from curriculum import EXTRAS, MOCK, TOPICS, WEEKS
+from curriculum import EXTRAS, MOCK, PPT_SOURCES, TOPICS, WEEKS
 from lesson_notes import NOTES
 from runner import case_label, execute, serialize
 import weeks_1_3
 import weeks_4_6
 import weeks_7_9
+import week_10
 
 QUESTIONS = {}
 COURSE = []
@@ -99,7 +100,10 @@ def build_question(identifier, week, topic, title, mode, spec, *, core=False, ex
 
 
 for week, (title, description) in enumerate(WEEKS, 1):
-    section = {'week': week, 'title': title, 'description': description, 'lessons': [], 'practice': [], 'exam': []}
+    section = {
+        'week': week, 'title': title, 'description': description, 'ppt': PPT_SOURCES.get(week),
+        'lessons': [], 'practice': [], 'exam': [],
+    }
     COURSE.append(section)
     for index, topic in enumerate(TOPICS[week], 1):
         base = f'w{week}-{index}'
