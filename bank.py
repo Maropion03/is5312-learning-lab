@@ -1,6 +1,8 @@
 """Build the public course map and private answer bank from authored exercises."""
 import ast
 
+from assignment_exercises import EXERCISES
+from assignment_materials import MATERIALS, SELF_CHECK
 from curriculum import EXTRAS, MOCK, PPT_SOURCES, TOPICS, WEEKS
 from lesson_notes import NOTES
 from runner import case_label, execute, serialize
@@ -8,9 +10,14 @@ import weeks_1_3
 import weeks_4_6
 import weeks_7_9
 import week_10
+import week_11
 
 QUESTIONS = {}
 COURSE = []
+LESSON_FILES = {
+    'w11-5': {'data.csv': week_11.DATA_FILES['data.csv']},
+    'w11-6': {'GDP.csv': week_11.GDP_FILES['GDP.csv']},
+}
 
 
 def prepare(spec):
@@ -54,13 +61,15 @@ def build_lesson(identifier, title, guide, demo):
             'code': '\n'.join(lines[int(first) - 1:int(last or first)]),
             'explanation': explanation,
         })
-    output, _, error, _ = execute(demo, 'script')
-    varied_output, _, varied_error, _ = execute(variation, 'script')
+    files = LESSON_FILES.get(identifier, {})
+    output, _, error, _ = execute(demo, 'script', files=files)
+    varied_output, _, varied_error, _ = execute(variation, 'script', files=files)
     assert not (error or varied_error), (identifier, error or varied_error)
     return {
         'id': identifier, 'title': title, 'guide': guide, 'code': demo,
         'goal': note['goal'], 'concept': note['concept'], 'trace': trace,
         'pitfall': note['pitfall'], 'output': output,
+        'files': list(files),
         'experiment': {
             'code': variation, 'before': before, 'after': after,
             'question': note['question'], 'output': varied_output, 'why': note['why'],
@@ -103,13 +112,15 @@ for week, (title, description) in enumerate(WEEKS, 1):
     section = {
         'week': week, 'title': title, 'description': description, 'ppt': PPT_SOURCES.get(week),
         'lessons': [], 'practice': [], 'exam': [],
+        'assignments': [], 'assignment_files': MATERIALS.get(week, []),
+        'assignment_self_check': SELF_CHECK.get(week, []),
     }
     COURSE.append(section)
     for index, topic in enumerate(TOPICS[week], 1):
         base = f'w{week}-{index}'
         name, guide, demo = (topic[key] for key in ('title', 'guide', 'demo'))
         section['lessons'].append(build_lesson(base, name, guide, demo))
-        demonstration = {'prompt':'阅读给出的代码，填写它打印的完整结果。空格和换行会参与判定。', 'code':demo,'kind':'script','cases':[()], 'files':{}}
+        demonstration = {'prompt':'阅读给出的代码，填写它打印的完整结果。空格和换行会参与判定。', 'code':demo,'kind':'script','cases':[()], 'files':LESSON_FILES.get(base, {})}
         debug = {**demonstration, 'prompt':'修改右侧代码，让它输出题目给定的正确结果。'}
         bug = '\n'.join(demo.split('\n')[:-1] + [topic['mistake']])
         practice = topic['practice']
@@ -129,6 +140,10 @@ for week, (title, description) in enumerate(WEEKS, 1):
         section['exam'].append(build_question(f'{base}-exam', week, base, name, '独立编写', topic['exam'], exam=f'week-{week}', core=True, guide=guide))
     for index, (name, spec) in enumerate(EXTRAS[week], 1):
         section['practice'].append(build_question(f'w{week}-extra-{index}', week, '', name, '综合补练', spec))
+    for number, title, spec, hint in EXERCISES[week]:
+        identifier = f'w{week}-assignment-{number.lower()}'
+        question = build_question(identifier, week, '', f'{number} · {title}', '课后作业', spec, guide=hint)
+        section['assignments'].append(question)
 
 MOCK_EXAM = [
     build_question(f'mock-{week}', week, '', title, '独立编写', spec, exam='mock')

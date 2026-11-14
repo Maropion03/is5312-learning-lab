@@ -1,10 +1,11 @@
 """Verify every reference and that incomplete/debug starter code needs editing."""
-from bank import COURSE, MOCK_EXAM, QUESTIONS
+from bank import COURSE, LESSON_FILES, MOCK_EXAM, QUESTIONS
 from lesson_notes import NOTES
 from runner import run
 
-assert len(COURSE) == 10 and len(MOCK_EXAM) == 9 and len(QUESTIONS) == 349
-assert len(NOTES) == 60
+assert len(COURSE) == 11 and len(MOCK_EXAM) == 9 and len(QUESTIONS) == 416
+assert len(NOTES) == 66
+assert [len(week['assignments']) for week in COURSE] == [0, 2, 6, 2, 5, 1, 2, 4, 2, 4, 5]
 for week in COURSE:
     assert len(week['lessons']) == 6
     assert len(week['practice']) == 28 and len(week['exam']) == 6
@@ -41,6 +42,9 @@ known_values = {
     'w10-1-exam': '[0, 1, 4]',
     'w10-3-write': '[2, 12]',
     'w10-6-write': "{'A': [19.0, 19.0, 19.0], 'B': [20.0, 18.0, 22.0]}",
+    'w2-assignment-q2': '[387880.28, 0.4]',
+    'w8-assignment-q2': '[10, 1512, 693, 8]',
+    'w10-assignment-q1': '[[0, 0, 0, 0, 1], [0, 0, 1, 0, 0], [0, 0, 0, 1, 0], [0, 0, 1, 0, 0], [0, 1, 0, 0, 0], [1, 0, 0, 0, 0]]',
 }
 for question, expected in known_values.items():
     assert QUESTIONS[question]['cases'][0]['label'] == expected
@@ -50,4 +54,10 @@ assert [(sample['stdin'], sample['expected']) for sample in first_practice['samp
     ('Ada\n7', 'Ada | 7'), ('李同学\n0', '李同学 | 0'),
 ]
 assert len(first_practice['cases']) == 3
+assert QUESTIONS['w11-assignment-q1a']['cases'][1]['expected'] == {'dict': [['Aces', 750.0], ['Bears', 300.0]]}
+assert QUESTIONS['w11-assignment-q2a']['cases'][1]['expected'] == [2, 1, 1]
+gdp_lesson = COURSE[-1]['lessons'][-1]
+chart_run = run(dict(code=gdp_lesson['code'], kind='script', cases=[{'args': []}],
+                     files=LESSON_FILES[gdp_lesson['id']], preserve=False, include_chart=True))[0]
+assert not chart_run['error'] and chart_run['chart'].startswith('iVBORw0KGgo')
 print(f'{len(QUESTIONS)} 道题，{total} 组参考用例，检查通过。')

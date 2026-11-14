@@ -1658,3 +1658,5 @@ input[type="file"]::file-selector-button:hover {
     animation: none !important;
   }
 }
+
+.output-chart { max-width: 100%; height: auto; margin-top: 12px; border: 1px solid var(--line-warm); border-radius: var(--radius); }

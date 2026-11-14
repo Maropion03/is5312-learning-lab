@@ -29,9 +29,9 @@ catch (error) {
 }
 
 const questions = Object.fromEntries(
-  [...course.weeks.flatMap((week) => [...week.practice, ...week.exam]), ...course.mock].map((question) => [question.id, question])
+  [...course.weeks.flatMap((week) => [...week.practice, ...week.exam, ...week.assignments]), ...course.mock].map((question) => [question.id, question])
 );
-const filters = ['全部', '必做', '独立编写', '预测输出', '调试', '补全', '综合补练'];
+const filters = ['全部', '课后作业', '必做', '独立编写', '预测输出', '调试', '补全', '综合补练'];
 let view = state.resume?.view || 'study';
 let activeQuestion = state.resume?.question || '';
 let activeExam = state.resume?.exam || '';
@@ -67,7 +67,7 @@ function selectWeek(number) {
   state.week = number;
   activeQuestion = '';
   activeExam = '';
-  practiceFilter = '全部';
+  if (practiceFilter !== '课后作业') practiceFilter = '全部';
   if (view === 'errors') view = 'study';
   save();
   render();
@@ -82,7 +82,9 @@ function openQuestion(id, fromErrors = false) {
   activeQuestion = id;
   activeExam = question.exam;
   view = fromErrors ? 'errors' : question.exam ? 'exam' : 'practice';
-  if (view === 'practice' && !filteredPracticeItems().includes(question)) practiceFilter = '全部';
+  if (view === 'practice' && !filteredPracticeItems().includes(question)) {
+    practiceFilter = question.mode === '课后作业' ? '课后作业' : '全部';
+  }
   const entries = fromErrors ? unresolvedErrors().map(([key]) => questions[key])
     : question.exam ? examQuestions(question.exam) : filteredPracticeItems();
   const index = entries.indexOf(question);
@@ -137,6 +139,7 @@ function study() {
     ? `按 ${escape(week().ppt)} 编写的可运行示例`
     : `基于原课程示例 · week${state.week}.py <button data-source="${state.week}">原代码</button><button data-notes="${state.week}">详细讲义</button>`;
   const experiment = item.experiment;
+  const courseFiles = week().assignment_files.filter((file) => ['课程课件', '课堂 Notebook', '数据文件'].includes(file.label));
   $('content').innerHTML = `
     <div class="lesson-heading">
       <div class="eyebrow">WEEK ${pad(state.week)} / LESSON ${pad(number)}</div>
@@ -152,6 +155,7 @@ function study() {
       <h2>先理解</h2>
       <p>${escape(item.concept)}</p>
       <div class="source">${source}</div>
+      ${state.week === 11 && courseFiles.length ? `<details><summary>本周课件、Notebook 和数据</summary>${resourceList(courseFiles)}</details>` : ''}
     </section>
     <section data-lesson-panel hidden>
       <h2>逐行读示例</h2>
@@ -185,7 +189,7 @@ function study() {
       <div class="actions"><button data-question="${item.id}-fill">先补全一行</button><button class="primary" data-question="${item.id}-write">独立编程</button></div>
       <div class="lesson-section">
         <h2>本周复习</h2>
-        <div class="actions"><button data-view="practice">本周 28 道练习</button><button data-exam="week-${state.week}">本周上机测验</button><button data-exam="mock">综合模拟</button></div>
+        <div class="actions"><button data-view="practice">本周题库</button><button data-assignments>本周作业</button><button data-exam="week-${state.week}">本周上机测验</button><button data-exam="mock">综合模拟</button></div>
       </div>
     </section>
     </div>
@@ -244,18 +248,38 @@ function rows(items, showMode = true, start = 0) {
 }
 
 function filteredPracticeItems() {
+  if (practiceFilter === '课后作业') return week().assignments;
   return week().practice.filter((item) => practiceFilter === '全部' || (practiceFilter === '必做' ? item.core : item.mode === practiceFilter));
+}
+
+function resourceList(files) {
+  return `<ul>${files.map((file) => `<li>${file.label} · <a href="${file.url}" download="${escape(file.name)}">${escape(file.name)}</a></li>`).join('')}</ul>`;
+}
+
+function assignmentResources() {
+  const {assignment_files: files, assignment_self_check: checks} = week();
+  return `
+    <h2>原题与附件</h2>
+    ${files.length ? resourceList(files)
+      : '<p class="caption">本机资料目录里没有找到这一周的作业文件。</p>'}
+    ${checks.map((item) => `<section class="work-section"><h3>${escape(item.title)}</h3><p>${escape(item.text)}</p></section>`).join('')}`;
 }
 
 function practice() {
   if (activeQuestion) return showQuestion(questions[activeQuestion]);
+  const assignments = practiceFilter === '课后作业';
+  const count = week().assignments.length;
+  const firstAssignmentWeek = course.weeks.find((item) => item.assignments.length);
   pagedList(`
     <div class="eyebrow">PRACTICE / WEEK ${pad(state.week)}</div>
-    <h1>本周题库</h1>
-    <p class="lead">${escape(week().title)} · 28 道随堂及扩展题，另有 6 道周测题。</p>
+    <h1>${assignments ? '本周作业' : '本周题库'}</h1>
+    <p class="lead">${assignments ? (count ? `${count} 道可判题练习，改编自本周作业。` : '本周暂无已核实的作业题。') :
+      `${escape(week().title)} · 28 道随堂及扩展题，另有 6 道周测题。`}</p>
+    ${assignments && !count && firstAssignmentWeek ? `<div class="actions"><button data-week="${firstAssignmentWeek.week}">查看第 ${firstAssignmentWeek.week} 周作业 →</button></div>` : ''}
     <div class="filters">${filters.map((filter) => `<button data-filter="${filter}" aria-pressed="${filter === practiceFilter}">${filter}</button>`).join('')}</div>
   `, filteredPracticeItems(), (items, start) => rows(items, true, start));
-  $('workspace').innerHTML = '<div class="eyebrow">PYTHON WORKBENCH</div><h2>从题库选一道题</h2><p class="caption">先跑公开样例，再提交多组测试。</p>';
+  $('workspace').innerHTML = assignments ? assignmentResources()
+    : '<div class="eyebrow">PYTHON WORKBENCH</div><h2>从题库选一道题</h2><p class="caption">先跑公开样例，再提交多组测试。</p>';
 }
 
 function examHome() {
@@ -307,7 +331,7 @@ function showQuestion(question) {
   $('content').innerHTML = `
     <div class="lesson-heading">
       <div class="actions">
-        <button class="quiet" data-back-question>← ${reviewing ? '错题本' : question.exam ? examName(question.exam) : '本周题库'}</button>
+        <button class="quiet" data-back-question>← ${reviewing ? '错题本' : question.exam ? examName(question.exam) : question.mode === '课后作业' ? '本周作业' : '本周题库'}</button>
         <button class="lesson-return" data-to-workspace>去代码区</button>
         ${question.exam && !finished ? '<button data-finish>交卷</button>' : ''}
       </div>
@@ -316,6 +340,8 @@ function showQuestion(question) {
     </div>
     <div class="lesson-page-content">
       <p class="lead">${escape(question.prompt)}</p>
+      ${question.mode === '课后作业' ? `<p class="caption">来源为第 ${question.week} 周作业。网页以函数返回值判题，原题的打印格式见 Word。</p>
+        <details><summary>查看原题与附件</summary>${assignmentResources()}</details>` : ''}
       ${question.signature ? `<pre class="sample">${escape(question.signature)}</pre>${question.week < 5 ? '<p class="caption">第一行已经写好。把代码写在缩进内，用 return 交出结果。第 5 周会系统讲解函数。</p>' : ''}` : ''}
       ${question.samples.length ? `<section class="work-section">
         <h2>公开样例</h2>
@@ -375,6 +401,7 @@ function errors() {
 
 function workspace(configuration) {
   const {key, code, question, readOnly, title, lessonId} = configuration;
+  const lessonFiles = lessonId ? lesson().files : [];
   const session = question?.exam ? currentExam() : null;
   const drafts = session?.drafts || state.drafts;
   const draft = drafts[key] || {};
@@ -393,8 +420,10 @@ function workspace(configuration) {
     ${prediction ? '<label class="form-label" for="answer">你预测的完整输出</label><textarea id="answer" class="answer" spellcheck="false" autocomplete="off"></textarea>' : ''}
     ${hasInput ? `<details ${question?.input ? 'open' : ''}><summary>标准输入 stdin</summary><label class="form-label" for="stdin">每行一次 input()${question ? ' · 仅用于「运行」' : ''}</label><textarea id="stdin" class="stdin" rows="2" ${readOnly ? 'readonly' : ''}></textarea></details>` : ''}
     ${question && Object.keys(question.files).length ? `<details><summary>样例文件</summary>${Object.entries(question.files).map(([name, data]) => `<div class="form-label">${escape(name)}</div><pre class="sample">${escape(data)}</pre>`).join('')}</details>` : ''}
+    ${lessonFiles.length ? `<p class="caption">运行时可直接读取 ${escape(lessonFiles.join('、'))}。</p>` : ''}
     <div class="console"><div class="console-head"><strong>运行结果</strong><span id="status" class="caption" role="status">${canEdit ? '⌘ Enter 运行' : '等待操作'}</span></div>
-      <pre id="output" aria-label="程序输出" aria-live="polite">尚未运行。</pre></div>`;
+      <pre id="output" aria-label="程序输出" aria-live="polite">尚未运行。</pre>
+      <img id="output-chart" class="output-chart" alt="Python 运行生成的 Matplotlib 图形" hidden></div>`;
   $('editor').value = draft.code ?? code;
   if ($('answer')) $('answer').value = draft.answer ?? '';
   if ($('stdin')) $('stdin').value = draft.input ?? question?.input ?? '';
@@ -448,7 +477,9 @@ function renderNow() {
   if (view === 'errors' && activeQuestion) state.resume.errorReviewIds = errorReviewIds;
   save();
   document.querySelectorAll('.top-nav [data-view]').forEach((button) => {
-    if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
+    const active = button.dataset.view === view &&
+      (view !== 'practice' || button.hasAttribute('data-assignments') === (practiceFilter === '课后作业'));
+    if (active) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
   moveNavPill();
@@ -459,9 +490,13 @@ function renderNow() {
 }
 
 let flashTimer;
-function showFeedback({message, status, bad}, animate = false) {
+function showFeedback({message, status, bad, chart}, animate = false) {
   if (!$('output')) return;
-  $('output').textContent = message || '没有标准输出。';
+  $('output').textContent = message || (chart ? '图形已生成。' : '没有标准输出。');
+  const image = $('output-chart');
+  image.hidden = !chart;
+  if (chart) image.src = 'data:image/png;base64,' + chart;
+  else image.removeAttribute('src');
   $('output').classList.toggle('bad', !!bad);
   $('status').textContent = status;
   $('status').className = bad ? 'bad' : status === '待验证' ? 'caption' : 'good';
@@ -536,7 +571,7 @@ async function execute(action) {
   const {key, question, lessonId} = panel;
   const session = question?.exam ? currentExam() : null;
   const input = payload();
-  const data = {id: question?.id, ...input};
+  const data = {id: question?.id, lesson_id: lessonId, ...input};
   if (action === 'review') Object.assign(data, session.results[key].submission, {review: true});
   running = true;
   const busyButton = document.querySelector(action === 'run' ? '[data-run]' : '[data-grade]');
@@ -548,7 +583,7 @@ async function execute(action) {
     const result = await api(action === 'review' ? 'grade' : action, data);
     if (action === 'run') {
       const display = question?.kind === 'function' && !result.error ? '返回值：' + result.actual + '\n' + (result.output || '') : result.output;
-      output = {message: [display, result.error].filter(Boolean).join('\n'), status: result.error ? '运行错误' : '运行完成', bad: !!result.error};
+      output = {message: [display, result.error].filter(Boolean).join('\n'), status: result.error ? '运行错误' : '运行完成', bad: !!result.error, chart: result.chart};
       if (!question && !result.error) {
         state.visited[lessonId] = true;
         save();
@@ -631,7 +666,15 @@ document.addEventListener('click', async (event) => {
   if (!button) return;
   const {dataset} = button;
   try {
-    if (dataset.view) { event.preventDefault(); return mode(dataset.view); }
+    if ('assignments' in dataset) {
+      practiceFilter = '课后作业';
+      return mode('practice');
+    }
+    if (dataset.view) {
+      event.preventDefault();
+      if (dataset.view === 'practice' && practiceFilter === '课后作业') practiceFilter = '全部';
+      return mode(dataset.view);
+    }
     if (dataset.week) return selectWeek(Number(dataset.week));
     if (dataset.lesson) {
       state.lesson[state.week] = dataset.lesson;

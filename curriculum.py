@@ -12,12 +12,14 @@ WEEKS = [
     ('面向对象', '类、实例、类变量、继承与方法重写'),
     ('NumPy', '数组、索引、广播、统计、筛选与文件读取'),
     ('Pandas', 'Series、DataFrame、表格读取、清洗与分组统计'),
+    ('Matplotlib', '折线、图例、类别图、直方图、散点图与子图'),
 ]
 
 PPT_SOURCES = {
     8: 'IS5312 week 8_Le.pptx',
     9: 'IS5312 week 9_Le-1.pptx',
     10: 'IS5312 week 10_Le.pptx',
+    11: 'IS5312 week 11_Le.pptx、Week 11 Notebook',
 }
 
 TOPICS = {week: [] for week in range(1, len(WEEKS) + 1)}

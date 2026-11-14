@@ -5,13 +5,16 @@ from io import StringIO
 from math import isclose
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import base64
 import json
 import os
 import sys
 import traceback
 
+os.environ.setdefault('MPLBACKEND', 'Agg')
 
-def execute(code, kind, args=(), files=None):
+
+def execute(code, kind, args=(), files=None, artifacts=None):
     output = StringIO()
     original_stdin = sys.stdin
     original_directory = Path.cwd()
@@ -31,6 +34,9 @@ def execute(code, kind, args=(), files=None):
                     actual_args = deepcopy(args)
                     result = namespace['solve'](*actual_args)
                     changed = actual_args != args
+            chart = Path('chart.png')
+            if artifacts is not None and chart.is_file():
+                artifacts['chart'] = base64.b64encode(chart.read_bytes()).decode('ascii')
         except (Exception, SystemExit) as exc:
             frames = [frame for frame in traceback.extract_tb(exc.__traceback__) if frame.filename == 'workbench.py']
             locations = [f'第 {frame.lineno} 行 · {frame.name}' for frame in frames[-4:]]
@@ -85,7 +91,8 @@ def run(payload):
     results = []
     for case in payload['cases']:
         args = case['args']
-        value, output, error, changed = execute(payload['code'], payload['kind'], args, payload['files'])
+        artifacts = {} if payload.get('include_chart') else None
+        value, output, error, changed = execute(payload['code'], payload['kind'], args, payload['files'], artifacts)
         if changed and payload['preserve']:
             error = '函数修改了输入。请返回新对象，并保留传入对象的内容。'
         results.append({
@@ -95,6 +102,7 @@ def run(payload):
             'expected': case.get('label', ''),
             'error': error,
             'passed': not error and equal(serialize(value), case.get('expected')),
+            **(artifacts or {}),
         })
     return results
 

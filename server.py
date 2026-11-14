@@ -6,15 +6,16 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
-from bank import COURSE, MOCK_EXAM, QUESTIONS
+from assignment_materials import DOWNLOADS
+from bank import COURSE, LESSON_FILES, MOCK_EXAM, QUESTIONS
 
 ROOT = Path(__file__).resolve().parent
 
 
-def run_python(code, kind, cases, files, preserve=False):
-    payload = dict(code=code, kind=kind, cases=cases, files=files, preserve=preserve)
+def run_python(code, kind, cases, files, preserve=False, *, include_chart=False):
+    payload = dict(code=code, kind=kind, cases=cases, files=files, preserve=preserve, include_chart=include_chart)
     try:
         result = subprocess.run(
             [sys.executable, '-I', str(ROOT / 'runner.py')],
@@ -42,6 +43,17 @@ class Handler(SimpleHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == '/api/course':
             return self.reply({'weeks': COURSE, 'mock': MOCK_EXAM, 'python': sys.version.split()[0]})
+        if path.startswith('/assignments/'):
+            source = DOWNLOADS.get(unquote(path.removeprefix('/assignments/')))
+            if source is None or not source.is_file():
+                return self.send_error(404)
+            data = source.read_bytes()
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/octet-stream')
+            self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(source.name))
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            return self.wfile.write(data)
         if path.startswith('/source/'):
             name = path.removeprefix('/source/')
             if name not in {f'week{week}.{extension}' for week in range(1, 8) for extension in ('py', 'md')}:
@@ -75,7 +87,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply({'text': [*question['hints'], question['solution']][level]})
         if action == 'run':
             if not question:
-                results = run_python(request['code'], 'script', [{'args': [request.get('input', '')]}], {})
+                files = LESSON_FILES.get(request.get('lesson_id'), {})
+                results = run_python(request['code'], 'script', [{'args': [request.get('input', '')]}], files, include_chart=True)
             elif question['mode'] == '预测输出':
                 return self.reply({'error': '先提交你预测的结果，再验证。'}, 400)
             else:
@@ -85,7 +98,8 @@ class Handler(SimpleHTTPRequestHandler):
                     cases = next(([case] for case in question['cases'][:len(question['samples'])]
                                   if case['args'] and case['args'][0] == stdin),
                                  [{'args': [stdin]}])
-                results = run_python(request['code'], question['kind'], cases, question['files'], question['preserve'])
+                files = question['all_files'] if question['mode'] == '调试' else question['files']
+                results = run_python(request['code'], question['kind'], cases, files, question['preserve'], include_chart=True)
             return self.reply(results[0])
         if not question:
             return self.reply({'error': '题目不存在。'}, 404)
